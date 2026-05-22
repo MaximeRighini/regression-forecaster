@@ -1,0 +1,15 @@
+# =============================================================================
+# DATA PATHS CONFIGURATION
+# =============================================================================
+# This file centralizes all data input/output (I/O) file paths.
+# Keys defined under the 'data' block are intercepted by the Pipeline engine
+# to trigger automated loading (auto-load) and saving (auto-dump) for Polars.
+# Use dynamic placeholders like {market} or {env} for dynamic path formatting.
+# =============================================================================
+
+data:
+  # ---------------------------------------------------------------------------
+  # @TODO: Remove 'dummy_table' when implementing actual pipeline data contracts.
+  # This key is a template placeholder demonstrating automated disk storage mapping.
+  # ---------------------------------------------------------------------------
+  dummy_table: "data/{market}/{env}/dummy_placeholder.parquet"

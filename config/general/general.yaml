@@ -1,0 +1,11 @@
+# =============================================================================
+# GENERAL CONFIGURATION
+# =============================================================================
+# This file contains global application settings and default values applicable
+# across all execution environments (e.g., log levels, timeouts).
+# This represents the lowest priority layer in the configuration hierarchy.
+# =============================================================================
+
+pipeline:
+  log_level: "INFO"
+  timeout: 60
