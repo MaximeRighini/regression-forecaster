@@ -1,4 +1,19 @@
-# Technical overview
+# [Project Name]
+
+[One sentence describing what this project does.]
+
+This repository is built with a focus on simplicity, maintainability, and strict code quality — designed to be easy to navigate for anyone reviewing the codebase.
+
+---
+
+## Table of Contents
+
+- [Quick Start](#quick-start)
+- [Core Architecture Dependencies](#core-architecture-dependencies)
+- [Project Structure & Design Principles](#project-structure--design-principles)
+- [Code Quality & CI/CD](#code-quality--cicd)
+
+---
 
 ## Quick Start
 
@@ -27,21 +42,53 @@ make docs-deploy   # Deploy the documentation to GitHub Pages
 
 ---
 
+## Core Architecture Dependencies
+
+This production template relies on two lightweight, decoupled core internal libraries to manage pipeline execution and configuration:
+
+- [dataconf-manager](https://github.com/MaximeRighini/dataconf-manager): Automates multi-layer YAML configuration deep-merging with dynamic text anchor resolution, and abstracts local file system read/write operations for Polars DataFrames.
+- [pipeline-orchestrator](https://github.com/MaximeRighini/pipeline-orchestrator): An execution engine that automatically resolves, sequences, and traces atomic functional steps (`Nodes`) based on their Python type signatures while managing automatic I/O data dumping.
+
+> **Modular Framework Note**: These dependencies are completely optional. If you are building an ultra-lightweight project that does not require runtime profile overrides (e.g., multi-environment or multi-market contexts) or formal execution tracing and tracking, you can strip both entries out of your `pyproject.toml` file and delete the `config/`, `src/nodes/`, and `src/pipelines/` directories.
+
+---
+
 ## Project Structure & Design Principles
 
 This repository follows a strict separation of concerns, keeping each component focused and easy to navigate.
 
 ```text
+├── config/              # Flexible YAML configuration layers (e.g., general/, env/)
 ├── Makefile             # Central command interface (local & CI)
 ├── pyproject.toml       # Single-source dependency and tool configuration
 ├── src/
-│   ├── config.py        # Environment and execution configuration
 │   ├── constants.py     # Schema definitions and soft-coded string mappings
 │   ├── utils/           # Shared, atomic helper functions
 │   ├── modules/         # Domain-driven processing logic
-│   └── run.py           # Single pipeline orchestration entry point
+│   ├── nodes/           # Optional: Atomic execution units wrapping business logic
+│   ├── pipelines/       # Optional: Ordered node sequences with auto I/O resolution
+│   └── run.py           # Single orchestration entry point
 └── tests/               # Pytest test suite mirroring the src/ structure
 ```
+
+### 1. Configuration (`config/`)
+
+Powered by `dataconf-manager`, the `config/` directory does not have a "set in stone" structure. \
+It uses a multi-layer deep merge strategy defined by a `priority_order` (e.g., `["general", "market", "env"]` for instance).
+
+- Later layers override earlier ones without erasing entire sub-dictionaries.
+- String values support dynamic anchor resolution (e.g., `data/{market}/output.parquet`).
+
+*For full configuration rules, refer to the `dataconf-manager` repository.*
+
+### 2. Orchestration (`src/nodes/` & `src/pipelines/`)
+
+Powered by `pipeline-orchestrator`, this pattern removes boilerplate and separates business logic from I/O operations:
+
+- **Nodes**: A `Node` wraps a single python function. It handles no I/O. Its input dependencies are automatically inferred from the function's arguments, and its outputs are explicitly declared.
+- **Pipelines**: A `Pipeline` is an ordered sequence of nodes. It injects the config, manages the shared memory context, and handles automatic data loading and dumping. If an output key matches a path defined in `config/data`.yaml, the pipeline automatically saves it to disk.
+
+*For advanced usage (fail-fast behavior, naming conventions), refer to the `pipeline-orchestrator` repository.*
 
 ---
 
