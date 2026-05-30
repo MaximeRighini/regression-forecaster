@@ -113,8 +113,6 @@ make lint-verify   # Read-only checks — what CI runs
 make test          # Run unit tests
 make all           # lint-fix → lint-verify → test
 make clean         # Remove all cache directories
-make docs-serve    # Preview the documentation locally
-make docs-deploy   # Deploy the documentation to GitHub Pages
 ```
 
 This package enforces code quality at three stages to keep the codebase clean
