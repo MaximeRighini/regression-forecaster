@@ -1,95 +1,125 @@
-# [Project Name]
+# regression-forecaster
 
-[One sentence describing what this project does.]
+A clean reference implementation for regression forecasting, built around a consistent model abstraction.
 
-This repository is built with a focus on simplicity, maintainability, and strict code quality — designed to be easy to navigate for anyone reviewing the codebase.
+The core idea: `BaseForecaster` defines a minimal interface (`train`, `predict`, `save`, `load`) that any model must implement, regardless of its internals. \
+`GradientBoostingForecaster` is the first concrete implementation. \
+Adding a new one — a rolling average, a Prophet wrapper, an LSTM — requires implementing the same four methods without touching anything downstream.
 
 ---
 
 ## Table of Contents
 
-- [Quick Start](#quick-start)
-- [Core Architecture Dependencies](#core-architecture-dependencies)
-- [Project Structure & Design Principles](#project-structure--design-principles)
-- [Code Quality & CI/CD](#code-quality--cicd)
+- [Installation](#installation)
+- [BaseForecaster](#baseforecaster)
+- [GradientBoostingForecaster](#gradientboostingforecaster)
+- [Evaluation & Reporting](#evaluation--reporting)
+- [Code Quality](#code-quality)
 
 ---
 
-## Quick Start
+## Installation
 
-Make sure you are inside your virtual environment, then run:
+Copy `src/models/` and `src/evaluation/` into your project and add the dependencies to your `pyproject.toml`:
 
-```bash
-make setup    # Create data directories, install dependencies and configure pre-commit
-make all      # Lint, verify, and test in one command
-python src/run.py  # Run the pipeline
+```toml
+dependencies = [
+    "polars>=1.0.0",
+    "xgboost>=2.0.0",
+    "shap>=0.45.0",
+]
 ```
 
-### Commands
+---
+
+## BaseForecaster
+
+Any model in this codebase inherits from `BaseForecaster` and implements the same interface.
+
+```python
+class BaseForecaster(ABC):
+    def train(self, df: pl.DataFrame) -> None: ...
+    def predict(self, df: pl.DataFrame) -> pl.Series: ...
+    def save(self, path: str | Path) -> None: ...
+
+    @classmethod
+    def load(cls, path: str | Path) -> Self: ...
+```
+
+Downstream code — pipelines, evaluation scripts, nodes — only ever depends on this interface, not on any specific implementation.
+
+---
+
+## GradientBoostingForecaster
+
+XGBoost-based implementation with categorical encoding, optional ID-level normalization, and SHAP explainability.
+
+```python
+from models.gradient_boosting import GradientBoostingForecaster
+
+model = GradientBoostingForecaster(
+    target_col="consumption_kwh",
+    feature_cols=["hour", "day_of_week", "temperature", "meter_type"],
+    id_col="meter_id",
+    normalize=True,
+    xgb_params={"n_estimators": 500, "learning_rate": 0.05},
+)
+
+model.train(df_train)
+
+predictions = model.predict(df_test)                # -> pl.Series
+importances = model.feature_importance()            # -> pl.DataFrame sorted by importance
+shap_values = model.explain(df_test)                # -> pl.DataFrame of SHAP contributions
+
+model.save("models/gb_forecaster.pkl")
+model = GradientBoostingForecaster.load("models/gb_forecaster.pkl")
+```
+
+**Categorical encoding:** String and Categorical columns are label-encoded at train time. Encodings are persisted and reused at predict time. Unseen categories raise immediately with a structured error listing every problematic value.
+
+**ID-level normalization:** When `normalize=True`, the target is divided by `mean(target_col)` per `id_col` before training, then predictions are multiplied back at inference. This helps the model learn patterns shared across entities whose targets differ only in magnitude. Normalization weights are computed exclusively on the training data.
+
+**Serialization:** `save()` / `load()` persist the full model state — XGBoost model, categorical encodings, normalization weights, feature columns — so a loaded model is immediately ready to predict.
+
+---
+
+## Evaluation & Reporting
+
+```python
+from evaluation.model_report import compute_report
+
+breakdown_config = {
+    "overall":                [],
+    "by_market":              ["market"],
+    "by_category":            ["category"],
+    "by_market_and_category": ["market", "category"],
+}
+
+report = compute_report(df, "y_true", "y_pred", breakdown_config)
+report.write_excel("evaluation/report.xlsx")
+```
+
+`compute_report` returns a flat DataFrame with one row per group per breakdown, ready to explore in Excel. Group columns not relevant to a given breakdown are filled with null so the schema stays consistent across all rows.
+
+---
+
+## Code Quality
 
 Common tasks are available via `make` to simplify the developer experience.
 
 ```bash
 make lint-fix      # Auto-fix formatting, style, and import order
 make lint-verify   # Read-only checks — what CI runs
-make test-unit     # Run only unit tests
-make test-e2e      # Run end-to-end and non-regression tests
-make test          # Run the entire test suite (unit + E2E)
+make test          # Run unit tests
 make all           # lint-fix → lint-verify → test
 make clean         # Remove all cache directories
 make docs-serve    # Preview the documentation locally
 make docs-deploy   # Deploy the documentation to GitHub Pages
 ```
 
----
+This package enforces code quality at three stages to keep the codebase clean
+and ensure that what works locally also works in CI.
 
-## Core Architecture Dependencies
-
-This template relies on two lightweight internal libraries:
-
-- [dataconf-manager](https://github.com/MaximeRighini/dataconf-manager) — multi-layer YAML config merging with dynamic anchor resolution, and local file I/O for Polars DataFrames.
-- [pipeline-orchestrator](https://github.com/MaximeRighini/pipeline-orchestrator) — executes ordered `Node` sequences, injects config, and handles automatic data loading and dumping based on paths defined in `config/general/general.yaml`.
-
-Both are optional. For projects that do not need multi-environment config or formal pipeline tracing, remove them from `pyproject.toml` and delete `config/`, `src/nodes/`, and `src/pipelines/`. See the comments in `pyproject.toml` for the deps to add back manually.
-
----
-
-## Project Structure & Design Principles
-
-Each file has one job.
-
-```text
-├── config/
-│   └── general/
-│       └── general.yaml  # Base config defaults and data paths
-├── Makefile              # Central command interface (local & CI)
-├── pyproject.toml        # Single-source dependency and tool configuration
-├── src/
-│   ├── constants.py      # Soft-coded column names and field mappings
-│   ├── utils.py          # Shared, atomic helper functions
-│   ├── modules/          # Domain-driven processing logic
-│   ├── nodes/            # Atomic execution units wrapping business logic
-│   ├── pipelines/        # Ordered node sequences with auto I/O resolution
-│   └── run.py            # Pipeline entry point
-└── tests/                # Pytest test suite mirroring the src/ structure
-```
-
-**`constants.py`** centralizes every column name and field mapping. If an upstream field is renamed, one line change propagates across the entire codebase.
-
-**`config/general/general.yaml`** holds both application settings and data paths. Keys defined under `data` are intercepted by the Pipeline engine to trigger automatic loading and dumping of Polars DataFrames. Dynamic placeholders (e.g. `{market}`, `{env}`) are resolved at runtime by `ConfigManager`.
-
-**`nodes/`** contains atomic functions wrapped in `Node` objects. Each node handles no I/O — it receives its inputs from the pipeline context and returns a dict of outputs. Input keys are inferred automatically from the function signature.
-
-**`pipelines/`** contains ordered sequences of nodes. The pipeline injects config, resolves inputs (from context or disk), merges outputs back into the shared context, and auto-dumps results when a data path is configured.
-
----
-
-## Code Quality & CI/CD
-
-This codebase enforces code quality at three stages of development.
-
-1. **`make lint-verify`** runs Ruff and Mypy in read-only mode. Run it regularly during development to catch linting and type errors before they accumulate.
-
-2. **Pre-commit hooks** act as a safety net on every commit, ensuring broken or badly formatted code never reaches the remote repository.
-
-3. **GitHub Actions** triggers automatically on every push. It runs the same environment and the same checks as local development, so there are no surprises. Any pull request that fails linting or tests is blocked from being merged.
+1. **`make lint-verify`** runs Ruff and Mypy in read-only mode — catch style and type errors early.
+2. **Pre-commit hooks** ensure badly formatted or broken code never reaches the remote repository.
+3. **GitHub Actions** triggers on every push and blocks any pull request that fails linting or tests.

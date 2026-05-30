@@ -23,4 +23,4 @@ data/input/
 data/output/
 
 # Pytest coverage reports
-.coverage
+.coverage*

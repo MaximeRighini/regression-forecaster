@@ -5,18 +5,13 @@ help:
 	@echo "  make setup        - Install dependencies and configure pre-commit"
 	@echo "  make lint-fix     - Automatically fix style, formatting, and imports"
 	@echo "  make lint-verify  - Run all checks in read-only mode (Ruff, Mypy)"
-	@echo "  make test-unit    - Run only unit tests (fast)"
-	@echo "  make test-e2e     - Run end-to-end and non-regression tests"
-	@echo "  make test         - Run ALL tests (unit + e2e)"
+	@echo "  make test         - Run tests (only unit tests in this codebase)"
 	@echo "  make all          - Fix, verify, and test"
 	@echo "  make clean        - Clean cache and temporary files"
 	@echo "  make docs-serve   - Preview the documentation locally"
 	@echo "  make docs-deploy  - Deploy the documentation to GitHub Pages"
 
 setup:
-	@echo "Creating data directories..."
-	# TODO @Maxime 2026-05-21: update with project's actual data structure
-	mkdir -p data/input data/output/intermediary
 	@echo "Upgrading pip..."
 	python -m pip install --upgrade pip
 	@echo "Installing project and dev dependencies..."
@@ -36,16 +31,9 @@ lint-verify:
 	ruff format --check .
 	mypy src/
 
-test-unit:
-	@echo "Running unit tests..."
-	pytest tests/unit/
-
-test-e2e:
-	@echo "Running E2E and non-regression tests..."
-	pytest tests/e2e/
-
-test: test-unit test-e2e
-	@echo "All tests passed successfully!"
+test:
+	@echo "Running tests..."
+	pytest tests/
 
 all: lint-fix lint-verify test
 

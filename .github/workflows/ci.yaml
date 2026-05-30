@@ -20,7 +20,4 @@ jobs:
         run: make lint-verify
 
       - name: Run unit tests
-        run: make test-unit
-
-      - name: Run E2E and non-regression tests
-        run: make test-e2e
+        run: make test
