@@ -19,4 +19,5 @@ venv/
 .vscode
 
 # Pytest coverage reports
+htmlcov/
 .coverage*
