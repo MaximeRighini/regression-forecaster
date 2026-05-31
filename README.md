@@ -1,5 +1,8 @@
 # regression-forecaster
 
+![CI](https://github.com/MaximeRighini/regression-forecaster/actions/workflows/ci.yaml/badge.svg)
+![Python](https://img.shields.io/badge/python-3.11+-blue)
+
 A clean reference implementation for regression forecasting, built around a consistent model abstraction.
 
 The core idea: `BaseForecaster` defines a minimal interface (`train`, `predict`, `save`, `load`) that any model must implement, regardless of its internals. \
